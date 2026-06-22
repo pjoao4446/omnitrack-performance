@@ -93,6 +93,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: "OmniTrack — Performance OS" },
+      { name: "description", content: "OmniTrack is a personal tracking app for holistic wellness, monitoring hydration, nutrition, fitness, and daily tasks." },
+      { property: "og:description", content: "OmniTrack is a personal tracking app for holistic wellness, monitoring hydration, nutrition, fitness, and daily tasks." },
+      { name: "twitter:description", content: "OmniTrack is a personal tracking app for holistic wellness, monitoring hydration, nutrition, fitness, and daily tasks." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/824ad7f8-c8f6-4031-a6d1-ac2b29579828/id-preview-62e44999--a95bf04d-3edb-4bbb-ad06-58b92c5e4d04.lovable.app-1782153676132.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/824ad7f8-c8f6-4031-a6d1-ac2b29579828/id-preview-62e44999--a95bf04d-3edb-4bbb-ad06-58b92c5e4d04.lovable.app-1782153676132.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

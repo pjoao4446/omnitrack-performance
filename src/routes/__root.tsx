@@ -126,30 +126,14 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useHydratedStore();
 
   return (
     <QueryClientProvider client={queryClient}>
-      <HydrationGate>
-        <AppShell>
-          <Outlet />
-        </AppShell>
-        <Toaster />
-      </HydrationGate>
+      <AppShell>
+        <Outlet />
+      </AppShell>
+      <Toaster />
     </QueryClientProvider>
   );
-}
-
-function HydrationGate({ children }: { children: ReactNode }) {
-  const hydrated = useHydratedStore();
-  if (!hydrated) {
-    return (
-      <div className="grid min-h-screen place-items-center">
-        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-primary shadow-[0_0_12px_var(--primary)]" />
-          Carregando OmniTrack…
-        </div>
-      </div>
-    );
-  }
-  return <>{children}</>;
 }

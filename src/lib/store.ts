@@ -24,7 +24,8 @@ interface State {
   // Water
   water: WaterLog[];
   waterGoals: WaterGoals;
-  addWater: (amountMl: number) => void;
+  addWater: (amountMl: number, dateISO?: string) => void;
+  updateWater: (id: string, patch: { amountMl?: number; at?: string }) => void;
   removeWater: (id: string) => void;
   setWaterDefault: (ml: number) => void;
   setWaterOverride: (day: Weekday, ml: number | null) => void;
@@ -76,8 +77,19 @@ export const useStore = create<State>()(
 
       water: [],
       waterGoals: { defaultMl: 3000, overrides: {} },
-      addWater: (amountMl) =>
-        set((s) => ({ water: [...s.water, { id: uid(), amountMl, at: nowISO() }] })),
+      addWater: (amountMl, dateISO) =>
+        set((s) => {
+          let at = nowISO();
+          if (dateISO && dateISO !== todayISO()) {
+            // anchor to noon of the chosen day to avoid TZ off-by-one
+            at = new Date(`${dateISO}T12:00:00`).toISOString();
+          }
+          return { water: [...s.water, { id: uid(), amountMl, at }] };
+        }),
+      updateWater: (id, patch) =>
+        set((s) => ({
+          water: s.water.map((w) => (w.id === id ? { ...w, ...patch } : w)),
+        })),
       removeWater: (id) => set((s) => ({ water: s.water.filter((w) => w.id !== id) })),
       setWaterDefault: (ml) =>
         set((s) => ({ waterGoals: { ...s.waterGoals, defaultMl: ml } })),

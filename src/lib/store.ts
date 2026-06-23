@@ -102,8 +102,13 @@ export const useStore = create<State>()(
         }),
 
       meals: [],
-      addMeal: ({ name, tag, notes }) =>
-        set((s) => ({ meals: [...s.meals, { id: uid(), name, tag, notes, at: nowISO() }] })),
+      addMeal: ({ name, tag, notes, dateISO }) => {
+        let at = nowISO();
+        if (dateISO && dateISO !== todayISO()) {
+          at = new Date(`${dateISO}T12:00:00`).toISOString();
+        }
+        set((s) => ({ meals: [...s.meals, { id: uid(), name, tag, notes, at }] }));
+      },
       updateMeal: (id, patch) =>
         set((s) => ({ meals: s.meals.map((m) => (m.id === id ? { ...m, ...patch } : m)) })),
       removeMeal: (id) => set((s) => ({ meals: s.meals.filter((m) => m.id !== id) })),

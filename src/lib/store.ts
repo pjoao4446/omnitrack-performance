@@ -32,7 +32,7 @@ interface State {
 
   // Nutrition
   meals: MealLog[];
-  addMeal: (input: { name: string; tag: MealTag; notes?: string }) => void;
+  addMeal: (input: { name: string; tag: MealTag; notes?: string; dateISO?: string }) => void;
   updateMeal: (id: string, patch: Partial<MealLog>) => void;
   removeMeal: (id: string) => void;
 

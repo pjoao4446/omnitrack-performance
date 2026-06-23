@@ -24,7 +24,8 @@ interface State {
   // Water
   water: WaterLog[];
   waterGoals: WaterGoals;
-  addWater: (amountMl: number) => void;
+  addWater: (amountMl: number, dateISO?: string) => void;
+  updateWater: (id: string, patch: { amountMl?: number; at?: string }) => void;
   removeWater: (id: string) => void;
   setWaterDefault: (ml: number) => void;
   setWaterOverride: (day: Weekday, ml: number | null) => void;

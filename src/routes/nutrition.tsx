@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { GlassCard } from "@/components/glass-card";
 import { dayNutritionScore, mealsForDate, useStore } from "@/lib/store";
-import { todayISO, weekDates, toISO, weekdayLabel } from "@/lib/date";
+import { todayISO, weekDates, toISO, weekdayLabel, fromISO, addDays } from "@/lib/date";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { Plus, Trash2, Pencil, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { MealLog, MealTag, Weekday } from "@/lib/types";
@@ -45,11 +45,14 @@ const TAG_META: Record<MealTag, { label: string; cls: string; dot: string }> = {
 function NutritionPage() {
   const meals = useStore((s) => s.meals);
   const today = todayISO();
-  const todayMeals = useMemo(
-    () => mealsForDate(meals, today).sort((a, b) => b.at.localeCompare(a.at)),
-    [meals, today],
+  const [selectedDate, setSelectedDate] = useState<string>(today);
+  const isToday = selectedDate === today;
+
+  const dayMeals = useMemo(
+    () => mealsForDate(meals, selectedDate).sort((a, b) => b.at.localeCompare(a.at)),
+    [meals, selectedDate],
   );
-  const score = dayNutritionScore(todayMeals);
+  const score = dayNutritionScore(dayMeals);
 
   const status =
     score == null
@@ -60,18 +63,37 @@ function NutritionPage() {
       ? { label: "Atenção", cls: "text-warn" }
       : { label: "Fora do trilho", cls: "text-destructive" };
 
+  const selectedObj = fromISO(selectedDate);
+  const headerLabel = isToday
+    ? "Hoje"
+    : selectedObj.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "short" });
+
+  const shiftDay = (delta: number) => {
+    const next = toISO(addDays(selectedObj, delta));
+    if (next > today) return;
+    setSelectedDate(next);
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Nutrição"
         subtitle="Log de impacto — disciplina sobre dieta."
-        actions={<MealDialog />}
+        actions={
+          <>
+            <DatePicker value={selectedDate} max={today} onChange={setSelectedDate} />
+            <MealDialog dateISO={selectedDate} />
+          </>
+        }
       />
 
       <div className="grid gap-4 md:grid-cols-[1fr_1.4fr]">
         <GlassCard className="p-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold tracking-tight">Hoje</h3>
+            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              <CalendarDays className="h-3.5 w-3.5" />
+              <span className={isToday ? "text-primary" : "text-foreground/80"}>{headerLabel}</span>
+            </div>
             <span className={cn("text-xs font-semibold uppercase tracking-wider", status.cls)}>
               {status.label}
             </span>
@@ -85,20 +107,20 @@ function NutritionPage() {
           <div className="mt-5 space-y-2">
             <TagBar
               label="Saudáveis"
-              count={todayMeals.filter((m) => m.tag === "healthy").length}
-              total={todayMeals.length}
+              count={dayMeals.filter((m) => m.tag === "healthy").length}
+              total={dayMeals.length}
               tone="primary"
             />
             <TagBar
               label="Neutras"
-              count={todayMeals.filter((m) => m.tag === "neutral").length}
-              total={todayMeals.length}
+              count={dayMeals.filter((m) => m.tag === "neutral").length}
+              total={dayMeals.length}
               tone="muted"
             />
             <TagBar
               label="Não saudáveis"
-              count={todayMeals.filter((m) => m.tag === "unhealthy").length}
-              total={todayMeals.length}
+              count={dayMeals.filter((m) => m.tag === "unhealthy").length}
+              total={dayMeals.length}
               tone="danger"
             />
           </div>
@@ -106,26 +128,76 @@ function NutritionPage() {
 
         <GlassCard className="p-6">
           <h3 className="mb-4 text-sm font-semibold tracking-tight">Performance semanal</h3>
-          <WeeklyNutrition />
+          <WeeklyNutrition selectedDate={selectedDate} onSelect={setSelectedDate} today={today} />
         </GlassCard>
       </div>
 
       <GlassCard className="p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-sm font-semibold tracking-tight">Timeline de hoje</h3>
-          <span className="text-xs text-muted-foreground">{todayMeals.length} refeições</span>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => shiftDay(-1)}
+              className="rounded-md border border-border bg-card/40 p-1.5 text-muted-foreground hover:border-primary hover:text-primary"
+              aria-label="Dia anterior"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <h3 className="px-2 text-sm font-semibold tracking-tight">
+              Refeições · {headerLabel}
+            </h3>
+            <button
+              onClick={() => shiftDay(1)}
+              disabled={isToday}
+              className="rounded-md border border-border bg-card/40 p-1.5 text-muted-foreground hover:border-primary hover:text-primary disabled:opacity-30"
+              aria-label="Próximo dia"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            {!isToday && (
+              <button
+                onClick={() => setSelectedDate(today)}
+                className="ml-2 rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground hover:border-primary hover:text-primary"
+              >
+                hoje
+              </button>
+            )}
+          </div>
+          <span className="text-xs text-muted-foreground">{dayMeals.length} refeições</span>
         </div>
-        {todayMeals.length === 0 ? (
-          <EmptyState text="Nenhuma refeição registrada. Toque em + para adicionar a primeira." />
+        {dayMeals.length === 0 ? (
+          <EmptyState text={`Nenhuma refeição em ${headerLabel.toLowerCase()}. Toque em + para adicionar.`} />
         ) : (
           <ul className="space-y-2">
-            {todayMeals.map((m) => (
+            {dayMeals.map((m) => (
               <MealRow key={m.id} meal={m} />
             ))}
           </ul>
         )}
       </GlassCard>
     </div>
+  );
+}
+
+function DatePicker({
+  value,
+  max,
+  onChange,
+}: {
+  value: string;
+  max: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label className="flex items-center gap-1.5 rounded-md border border-border bg-card/40 px-2.5 py-1.5 text-xs text-muted-foreground hover:border-primary hover:text-primary">
+      <CalendarDays className="h-3.5 w-3.5" />
+      <input
+        type="date"
+        value={value}
+        max={max}
+        onChange={(e) => e.target.value && onChange(e.target.value)}
+        className="bg-transparent text-xs outline-none [color-scheme:dark]"
+      />
+    </label>
   );
 }
 
@@ -159,10 +231,17 @@ function TagBar({
   );
 }
 
-function WeeklyNutrition() {
+function WeeklyNutrition({
+  selectedDate,
+  onSelect,
+  today,
+}: {
+  selectedDate: string;
+  onSelect: (iso: string) => void;
+  today: string;
+}) {
   const meals = useStore((s) => s.meals);
   const days = weekDates();
-  const today = todayISO();
   return (
     <div className="grid grid-cols-7 gap-2">
       {days.map((d) => {
@@ -172,12 +251,21 @@ function WeeklyNutrition() {
         const n = list.filter((m) => m.tag === "neutral").length;
         const u = list.filter((m) => m.tag === "unhealthy").length;
         const tot = list.length || 1;
+        const isFuture = iso > today;
+        const isSelected = iso === selectedDate;
         return (
-          <div key={iso} className="flex flex-col items-center gap-1.5">
+          <button
+            key={iso}
+            disabled={isFuture}
+            onClick={() => onSelect(iso)}
+            className="flex flex-col items-center gap-1.5 disabled:opacity-40"
+          >
             <div
               className={cn(
-                "flex h-28 w-full flex-col-reverse overflow-hidden rounded-lg border bg-card/40",
-                iso === today ? "border-primary/60" : "border-border",
+                "flex h-28 w-full flex-col-reverse overflow-hidden rounded-lg border bg-card/40 transition-all",
+                isSelected
+                  ? "border-primary shadow-[0_0_18px_-4px_var(--primary)]"
+                  : "border-border",
               )}
             >
               {list.length > 0 ? (
@@ -192,7 +280,7 @@ function WeeklyNutrition() {
               {weekdayLabel(d.getDay() as Weekday)}
             </div>
             <div className="num text-[10px] text-foreground/80">{list.length}</div>
-          </div>
+          </button>
         );
       })}
     </div>
@@ -251,11 +339,13 @@ function MealDialog({
   onOpenChange,
   initial,
   onSave,
+  dateISO,
 }: {
   open?: boolean;
   onOpenChange?: (v: boolean) => void;
   initial?: MealLog;
   onSave?: (patch: Partial<MealLog>) => void;
+  dateISO?: string;
 } = {}) {
   const add = useStore((s) => s.addMeal);
   const [localOpen, setLocalOpen] = useState(false);
@@ -266,12 +356,19 @@ function MealDialog({
   const [tag, setTag] = useState<MealTag | null>(initial?.tag ?? null);
   const [notes, setNotes] = useState(initial?.notes ?? "");
 
+  const today = todayISO();
+  const targetDate = dateISO ?? today;
+  const targetLabel =
+    targetDate === today
+      ? "hoje"
+      : fromISO(targetDate).toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "short" });
+
   const submit = () => {
     if (!name || !tag) return;
     if (initial && onSave) onSave({ name, tag, notes: notes || undefined });
     else {
-      add({ name, tag, notes: notes || undefined });
-      toast.success("Refeição registrada");
+      add({ name, tag, notes: notes || undefined, dateISO: targetDate });
+      toast.success(`Refeição registrada${targetDate === today ? "" : ` em ${targetLabel}`}`);
     }
     setName(""); setTag(null); setNotes("");
     setOpen(false);
@@ -290,7 +387,9 @@ function MealDialog({
       {trigger}
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{initial ? "Editar refeição" : "Nova refeição"}</DialogTitle>
+          <DialogTitle>
+            {initial ? "Editar refeição" : `Nova refeição · ${targetLabel}`}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <Input

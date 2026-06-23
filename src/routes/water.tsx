@@ -3,7 +3,7 @@ import { useState } from "react";
 import { GlassCard } from "@/components/glass-card";
 import { ProgressRing } from "@/components/progress-ring";
 import { goalForDate, useStore, waterTotalForDate } from "@/lib/store";
-import { todayISO, weekDates, toISO, weekdayLabel, weekdayLabelLong } from "@/lib/date";
+import { todayISO, weekDates, toISO, weekdayLabel, weekdayLabelLong, fromISO } from "@/lib/date";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Settings2, Trash2 } from "lucide-react";
+import { Plus, Settings2, Trash2, Pencil, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import type { Weekday } from "@/lib/types";
 
@@ -32,14 +32,19 @@ function WaterPage() {
   const goals = useStore((s) => s.waterGoals);
   const addWater = useStore((s) => s.addWater);
   const removeWater = useStore((s) => s.removeWater);
+  const updateWater = useStore((s) => s.updateWater);
 
   const today = todayISO();
-  const total = waterTotalForDate(water, today);
-  const goal = goalForDate(goals, new Date());
+  const [selectedDate, setSelectedDate] = useState<string>(today);
+  const isToday = selectedDate === today;
+
+  const selectedDateObj = fromISO(selectedDate);
+  const total = waterTotalForDate(water, selectedDate);
+  const goal = goalForDate(goals, selectedDateObj);
   const pct = goal ? total / goal : 0;
 
-  const todayLogs = water
-    .filter((w) => w.at.slice(0, 10) === today)
+  const dayLogs = water
+    .filter((w) => w.at.slice(0, 10) === selectedDate)
     .sort((a, b) => b.at.localeCompare(a.at));
 
   const days = weekDates();
@@ -51,16 +56,37 @@ function WaterPage() {
   });
   const hits = weekData.filter((d) => d.hit).length;
 
+  const headerLabel = isToday
+    ? "Hoje"
+    : selectedDateObj.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "short" });
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Hidratação"
         subtitle="Motor de água — meta dinâmica por dia."
-        actions={<GoalDialog />}
+        actions={
+          <>
+            <DatePicker value={selectedDate} max={today} onChange={setSelectedDate} />
+            <GoalDialog />
+          </>
+        }
       />
 
       <div className="grid gap-4 md:grid-cols-[1fr_1fr]">
         <GlassCard className="flex flex-col items-center justify-center gap-5 p-8">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            <CalendarDays className="h-3.5 w-3.5" />
+            <span className={isToday ? "text-cyan" : "text-foreground/80"}>{headerLabel}</span>
+            {!isToday && (
+              <button
+                onClick={() => setSelectedDate(today)}
+                className="ml-1 rounded-full border border-border px-2 py-0.5 text-[10px] hover:border-cyan hover:text-cyan"
+              >
+                voltar para hoje
+              </button>
+            )}
+          </div>
           <ProgressRing
             value={pct}
             size={240}
@@ -80,15 +106,15 @@ function WaterPage() {
               <button
                 key={ml}
                 onClick={() => {
-                  addWater(ml);
-                  toast.success(`+${ml}ml`);
+                  addWater(ml, selectedDate);
+                  toast.success(`+${ml}ml${isToday ? "" : ` em ${headerLabel}`}`);
                 }}
                 className="rounded-full border border-border bg-card/40 px-4 py-2 text-sm font-semibold transition-all hover:border-cyan hover:text-cyan hover:shadow-[0_0_20px_-6px_var(--cyan)]"
               >
                 +{ml}
               </button>
             ))}
-            <CustomAdd onAdd={(ml) => { addWater(ml); toast.success(`+${ml}ml`); }} />
+            <CustomAdd onAdd={(ml) => { addWater(ml, selectedDate); toast.success(`+${ml}ml`); }} />
           </div>
         </GlassCard>
 
@@ -102,13 +128,19 @@ function WaterPage() {
           <div className="grid grid-cols-7 gap-2">
             {weekData.map((d) => {
               const p = Math.min(1, d.total / d.goal);
-              const isToday = d.iso === today;
+              const isSelected = d.iso === selectedDate;
+              const isFuture = d.iso > today;
               return (
-                <div key={d.iso} className="flex flex-col items-center gap-1.5">
+                <button
+                  key={d.iso}
+                  disabled={isFuture}
+                  onClick={() => setSelectedDate(d.iso)}
+                  className="flex flex-col items-center gap-1.5 disabled:opacity-40"
+                >
                   <div
                     className={`relative h-28 w-full overflow-hidden rounded-lg border ${
-                      isToday ? "border-primary/60" : "border-border"
-                    } bg-card/40`}
+                      isSelected ? "border-cyan shadow-[0_0_18px_-4px_var(--cyan)]" : "border-border"
+                    } bg-card/40 transition-all`}
                   >
                     <div
                       className="absolute inset-x-0 bottom-0 transition-all"
@@ -126,7 +158,7 @@ function WaterPage() {
                     {weekdayLabel(d.day.getDay() as Weekday)}
                   </div>
                   <div className="num text-[10px] text-foreground/80">{d.total}</div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -138,14 +170,16 @@ function WaterPage() {
 
       <GlassCard className="p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-sm font-semibold tracking-tight">Log de hoje</h3>
-          <span className="text-xs text-muted-foreground">{todayLogs.length} entradas</span>
+          <h3 className="text-sm font-semibold tracking-tight">
+            Log · {headerLabel}
+          </h3>
+          <span className="text-xs text-muted-foreground">{dayLogs.length} entradas</span>
         </div>
-        {todayLogs.length === 0 ? (
-          <EmptyState text="Nenhum registro hoje. Use o botão + para começar." />
+        {dayLogs.length === 0 ? (
+          <EmptyState text={`Nenhum registro em ${headerLabel.toLowerCase()}. Use os botões acima para adicionar.`} />
         ) : (
           <ul className="divide-y divide-border/60">
-            {todayLogs.map((l) => (
+            {dayLogs.map((l) => (
               <li key={l.id} className="flex items-center justify-between py-2.5">
                 <div className="flex items-center gap-3">
                   <span className="h-2 w-2 rounded-full bg-cyan shadow-[0_0_8px_var(--cyan)]" />
@@ -154,23 +188,91 @@ function WaterPage() {
                     {new Date(l.at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                   </span>
                 </div>
-                <button
-                  onClick={() => {
-                    if (confirm("Remover este registro?")) {
-                      removeWater(l.id);
-                      toast("Registro removido");
-                    }
-                  }}
-                  className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <EditEntry
+                    initial={l.amountMl}
+                    onSave={(ml) => {
+                      updateWater(l.id, { amountMl: ml });
+                      toast.success("Registro atualizado");
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      if (confirm("Remover este registro?")) {
+                        removeWater(l.id);
+                        toast("Registro removido");
+                      }
+                    }}
+                    className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
         )}
       </GlassCard>
     </div>
+  );
+}
+
+function DatePicker({
+  value,
+  max,
+  onChange,
+}: {
+  value: string;
+  max: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label className="flex items-center gap-1.5 rounded-md border border-border bg-card/40 px-2.5 py-1.5 text-xs text-muted-foreground hover:border-cyan hover:text-cyan">
+      <CalendarDays className="h-3.5 w-3.5" />
+      <input
+        type="date"
+        value={value}
+        max={max}
+        onChange={(e) => e.target.value && onChange(e.target.value)}
+        className="bg-transparent text-xs outline-none [color-scheme:dark]"
+      />
+    </label>
+  );
+}
+
+function EditEntry({ initial, onSave }: { initial: number; onSave: (ml: number) => void }) {
+  const [open, setOpen] = useState(false);
+  const [val, setVal] = useState(String(initial));
+  return (
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) setVal(String(initial)); }}>
+      <DialogTrigger asChild>
+        <button className="rounded-md p-1.5 text-muted-foreground hover:bg-card hover:text-cyan">
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      </DialogTrigger>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Editar quantidade</DialogTitle>
+        </DialogHeader>
+        <div className="flex gap-2">
+          <Input
+            autoFocus
+            inputMode="numeric"
+            value={val}
+            onChange={(e) => setVal(e.target.value.replace(/\D/g, ""))}
+          />
+          <Button
+            disabled={!val}
+            onClick={() => {
+              onSave(Number(val));
+              setOpen(false);
+            }}
+          >
+            Salvar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

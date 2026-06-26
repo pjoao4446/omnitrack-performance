@@ -15,7 +15,14 @@ import type {
 import { todayISO, weekdayOf } from "./date";
 
 const uid = () => Math.random().toString(36).slice(2, 11) + Date.now().toString(36);
-const nowISO = () => new Date().toISOString();
+// Local ISO (sem conversão para UTC) — preserva o dia/horário do fuso do usuário,
+// pois o app filtra registros por `at.slice(0,10)` (data local).
+const nowISO = () => {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
+const dateAtNoonISO = (dateISO: string) => `${dateISO}T12:00:00`;
 
 interface State {
   profile: Profile;
@@ -81,8 +88,7 @@ export const useStore = create<State>()(
         set((s) => {
           let at = nowISO();
           if (dateISO && dateISO !== todayISO()) {
-            // anchor to noon of the chosen day to avoid TZ off-by-one
-            at = new Date(`${dateISO}T12:00:00`).toISOString();
+            at = dateAtNoonISO(dateISO);
           }
           return { water: [...s.water, { id: uid(), amountMl, at }] };
         }),
@@ -105,7 +111,7 @@ export const useStore = create<State>()(
       addMeal: ({ name, tag, notes, dateISO }) => {
         let at = nowISO();
         if (dateISO && dateISO !== todayISO()) {
-          at = new Date(`${dateISO}T12:00:00`).toISOString();
+          at = dateAtNoonISO(dateISO);
         }
         set((s) => ({ meals: [...s.meals, { id: uid(), name, tag, notes, at }] }));
       },

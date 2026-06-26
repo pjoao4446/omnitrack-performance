@@ -111,7 +111,7 @@ export const useStore = create<State>()(
       addMeal: ({ name, tag, notes, dateISO }) => {
         let at = nowISO();
         if (dateISO && dateISO !== todayISO()) {
-          at = new Date(`${dateISO}T12:00:00`).toISOString();
+          at = dateAtNoonISO(dateISO);
         }
         set((s) => ({ meals: [...s.meals, { id: uid(), name, tag, notes, at }] }));
       },

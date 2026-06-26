@@ -88,8 +88,7 @@ export const useStore = create<State>()(
         set((s) => {
           let at = nowISO();
           if (dateISO && dateISO !== todayISO()) {
-            // anchor to noon of the chosen day to avoid TZ off-by-one
-            at = new Date(`${dateISO}T12:00:00`).toISOString();
+            at = dateAtNoonISO(dateISO);
           }
           return { water: [...s.water, { id: uid(), amountMl, at }] };
         }),
